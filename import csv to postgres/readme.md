@@ -1,4 +1,4 @@
-# CSV to PostgreSQL Importer
+# Spreadsheet CSV Link to PostgreSQL Importer
 
 This script imports data from a CSV file into a PostgreSQL database.
 
