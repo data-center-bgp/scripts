@@ -16,7 +16,7 @@ google_sheets_url = input("Enter the URL of the CSV file: ")
 table_name = input("Enter the name of the table: ")
 
 # Read the CSV file from the URL
-df = pd.read_csv(google_sheets_url)
+df = pd.read_csv(google_sheets_url, low_memory=False)
 
 # Connect to PostgreSQL
 conn = psycopg2.connect(
@@ -43,7 +43,9 @@ data_type_mapping = {
 columns = ", ".join([f'"{column_name}" {data_type_mapping[str(data_type)]}' for column_name, data_type in df.dtypes.items()])
 
 # Get all column names
-all_column_names = ', '.join([f'"{column_name}"' for column_name in df.columns])
+# all_column_names = ', '.join([f'"{column_name}"' for column_name in df.columns])
+
+unique_index_column = '"NO NIK"'
 
 # Drop the table if it exists
 cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
@@ -52,7 +54,7 @@ cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
 cursor.execute(f"""
     CREATE TABLE IF NOT EXISTS {table_name} (
         {columns},
-        CONSTRAINT unique_row UNIQUE({all_column_names})
+        CONSTRAINT unique_row UNIQUE({unique_index_column})
     )
 """)
 
