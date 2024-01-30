@@ -15,8 +15,42 @@ google_sheets_url = input("Enter the URL of the CSV file: ")
 # Ask for the table name
 table_name = input("Enter the name of the table: ")
 
+# Ask for the CSV delimiter
+print("Select the CSV delimiter:")
+print("1. Comma (,)")
+print("2. Semicolon (;)")
+print("3. Tab (\\t)")
+print("4. Pipe (|)")
+delimiter_option = input("Enter your choice: ")
+
+# Map the delimiter option to the actual delimiter
+delimiter_mapping = {
+    "1": ",",
+    "2": ";",
+    "3": "\t",
+    "4": "|"
+}
+delimiter = delimiter_mapping.get(delimiter_option)
+
+# Ask for the CSV encoding
+print("Select the CSV encoding:")
+print("1. UTF-8")
+print("2. latin-1")
+print("3. ascii")
+print("4. cp1252")
+encoding_option = input("Enter your choice: ")
+
+# Map the encoding option to the actual encoding
+encoding_mapping = {
+    "1": "utf-8",
+    "2": "latin-1",
+    "3": "ascii",
+    "4": "cp1252"
+}
+encoding = encoding_mapping.get(encoding_option)
+
 # Read the CSV file from the URL
-df = pd.read_csv(google_sheets_url, low_memory=False)
+df = pd.read_csv(google_sheets_url, low_memory=False, sep=delimiter, encoding=encoding)
 
 # Connect to PostgreSQL
 conn = psycopg2.connect(
@@ -42,10 +76,10 @@ data_type_mapping = {
 # Generate a string that defines the columns for the PostgreSQL table
 columns = ", ".join([f'"{column_name}" {data_type_mapping[str(data_type)]}' for column_name, data_type in df.dtypes.items()])
 
-# Get all column names
-# all_column_names = ', '.join([f'"{column_name}"' for column_name in df.columns])
-
 unique_index_column = '"NO NIK"'
+
+# Generate a unique name for the constraint
+constraint_name = f"unique_row_{table_name}"
 
 # Drop the table if it exists
 cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
@@ -54,7 +88,7 @@ cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
 cursor.execute(f"""
     CREATE TABLE IF NOT EXISTS {table_name} (
         {columns},
-        CONSTRAINT unique_row UNIQUE({unique_index_column})
+        CONSTRAINT {constraint_name} UNIQUE({unique_index_column})
     )
 """)
 
@@ -92,7 +126,7 @@ cursor.copy_expert(f"""
 cursor.execute(f"""
     INSERT INTO {table_name}
     SELECT * FROM temp_table
-    ON CONFLICT ON CONSTRAINT unique_row DO NOTHING
+    ON CONFLICT ON CONSTRAINT {constraint_name} DO NOTHING
 """)
 conn.commit()
 
@@ -102,3 +136,6 @@ conn.close()
 
 # Print success message
 print(f"Data imported successfully into {table_name}!")
+
+# Pause the script
+input("Press any key to exit...")
