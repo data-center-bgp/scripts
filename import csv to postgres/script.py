@@ -76,58 +76,26 @@ data_type_mapping = {
 # Generate a string that defines the columns for the PostgreSQL table
 columns = ", ".join([f'"{column_name}" {data_type_mapping[str(data_type)]}' for column_name, data_type in df.dtypes.items()])
 
-unique_index_column = '"NO NIK"'
-
-# Generate a unique name for the constraint
-constraint_name = f"unique_row_{table_name}"
-
 # Drop the table if it exists
 cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
 
-# Create table if it doesn't exist
+# Create table
 cursor.execute(f"""
-    CREATE TABLE IF NOT EXISTS {table_name} (
-        {columns},
-        CONSTRAINT {constraint_name} UNIQUE({unique_index_column})
+    CREATE TABLE {table_name} (
+        {columns}
     )
 """)
-
-# Get the current table structure
-cursor.execute(f"SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{table_name}'")
-existing_columns = [row[0] for row in cursor.fetchall()]
-
-# Get the columns from the CSV file
-csv_columns = df.columns.tolist()
-
-# Find the columns that are in the CSV file but not in the table
-new_columns = set(csv_columns) - set(existing_columns)
-
-# Add the new columns to the table
-for column_name in new_columns:
-    data_type = data_type_mapping[str(df[column_name].dtype)]
-    cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS \"{column_name}\" {data_type}")
 
 # Create a string buffer to hold CSV data
 csv_buffer = StringIO()
 df.to_csv(csv_buffer, index=False, header=False, sep="\t")
 csv_buffer.seek(0)
 
-# Create a temporary table
-cursor.execute(f"""
-    CREATE TEMP TABLE temp_table AS SELECT * FROM {table_name} LIMIT 0
-""")
-
-# Copy data from CSV buffer to temporary table
+# Copy data from CSV buffer to table
 cursor.copy_expert(f"""
-    COPY temp_table FROM STDIN WITH CSV DELIMITER '\t' NULL '' ESCAPE '\\' QUOTE '\"'
+    COPY {table_name} FROM STDIN WITH CSV DELIMITER '\t' NULL '' ESCAPE '\\' QUOTE '\"'
 """, csv_buffer)
 
-# Insert data from temporary table to main table, skipping duplicate rows
-cursor.execute(f"""
-    INSERT INTO {table_name}
-    SELECT * FROM temp_table
-    ON CONFLICT ON CONSTRAINT {constraint_name} DO NOTHING
-""")
 conn.commit()
 
 # Close the cursor and connection
